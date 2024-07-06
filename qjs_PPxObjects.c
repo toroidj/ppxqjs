@@ -498,6 +498,68 @@ static JSValue SetPaneIndex(JSContext *ctx, JSValueConst this_obj, JSValueConst 
 	return JS_UNDEFINED;
 }
 
+JSValue GetPaneGroupIndex(JSContext *ctx, JSValueConst this_obj)
+{
+	PANEINFO *info = GetPaneInfo(this_obj);
+	int tmp[2];
+
+	tmp[0] = info->index;
+	tmp[1] = -1;
+	info->ppxa->Function(info->ppxa, PPXCMDID_COMBOGROUPINDEX, &tmp);
+	return JS_NewInt32(ctx, tmp[1]);
+}
+
+static JSValue SetPaneGroupIndex(JSContext *ctx, JSValueConst this_obj, JSValueConst val)
+{
+	PANEINFO *info = GetPaneInfo(this_obj);
+
+	int tmp[2];
+
+	tmp[0] = info->index;
+	JS_ToInt32(ctx, &tmp[1], val);
+	info->ppxa->Function(info->ppxa, PPXCMDID_SETCOMBOGROUPINDEX, &tmp);
+	return JS_UNDEFINED;
+}
+
+JSValue GetPaneGroupCount(JSContext *ctx, JSValueConst this_obj)
+{
+	PANEINFO *info = GetPaneInfo(this_obj);
+	int tmp[2];
+
+	tmp[0] = info->index;
+	tmp[1] = 0;
+	info->ppxa->Function(info->ppxa, PPXCMDID_COMBOGROUPCOUNT, &tmp);
+	return JS_NewInt32(ctx, tmp[1]);
+}
+
+JSValue GetPaneGroupName(JSContext *ctx, JSValueConst this_obj)
+{
+	PPXUPTR_TABINDEXSTRW tmp;
+	PANEINFO *info = GetPaneInfo(this_obj);
+	WCHAR param[CMDLINESIZE];
+
+	tmp.pane = info->index;
+	tmp.tab = -1;
+	tmp.str = param;
+	param[0] = '\0';
+	info->ppxa->Function(info->ppxa, PPXCMDID_COMBOGROUPNAME, &tmp);
+	return JS_NewStringW(ctx, param);
+}
+
+static JSValue SetPaneGroupName(JSContext *ctx, JSValueConst this_obj, JSValueConst val)
+{
+	PPXUPTR_TABINDEXSTRW tmp;
+	PANEINFO *info = GetPaneInfo(this_obj);
+	WCHAR param[CMDLINESIZE];
+
+	tmp.pane = info->index;
+	tmp.tab = -1;
+	tmp.str = param;
+	GetJsShortString(ctx, val, param);
+	info->ppxa->Function(info->ppxa, PPXCMDID_SETCOMBOGROUPNAME, &tmp);
+	return JS_UNDEFINED;
+}
+
 static JSValue PaneIndexFrom(JSContext *ctx, JSValueConst this_obj, int argc, JSValueConst *argv)
 {
 	PANEINFO *info = GetPaneInfo(this_obj);
@@ -585,6 +647,11 @@ static const JSCFunctionListEntry PaneFunctionList[] = {
 	JS_CFUNC_DEF("atEnd", 0, PaneatEnd),
 	JS_CFUNC_DEF("moveNext", 0, PanemoveNext),
 	JS_CFUNC_DEF("Reset", 0, PaneReset),
+
+	JS_CGETSET_DEF("GroupIndex", GetPaneGroupIndex, SetPaneGroupIndex),
+	JS_CGETSET_DEF("GroupCount", GetPaneGroupCount, NULL),
+	JS_CGETSET_DEF("GroupName", GetPaneGroupName, SetPaneGroupName),
+
 #if !MODIFY_QJS
 	JS_CFUNC_DEF("Symbol.iterator", 0, PaneIterator),
 #endif

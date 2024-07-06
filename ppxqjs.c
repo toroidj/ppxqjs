@@ -267,8 +267,14 @@ PPXMCOMMANDSTRUCT DummyPxc =
 void SleepStayInstance(InstanceValueStruct *info, OldPPxInfoStruct *OldInfo)
 {
 	// appinfo が使えない状態で使われた時用のダミーを設定する。
-	info->ppxa = OldInfo->ppxa;
-	info->pxc = OldInfo->pxc;
+	if ( OldInfo->ppxa != NULL ){
+		info->ppxa = OldInfo->ppxa;
+		info->pxc = OldInfo->pxc;
+	}else{
+		info->ppxa = (info->stay.ppxa != NULL ) ?
+				info->stay.ppxa : &DummyPPxAppInfo;
+		info->pxc = &DummyPxc;
+	}
 	info->stay.entry--;
 }
 
@@ -276,7 +282,6 @@ void SleepStayInstance(InstanceValueStruct *info, OldPPxInfoStruct *OldInfo)
 void ChainStayInstance(InstanceValueStruct *info)
 {
 	PPXAPPINFOW *ppxa;
-	OldPPxInfoStruct OldInfo;
 
 	// 情報用意
 	ppxa = info->ppxa;
@@ -305,11 +310,6 @@ void ChainStayInstance(InstanceValueStruct *info)
 			info->stay.ppxa = (PPXAPPINFOW *)stayppxa;
 		}
 	}
-	OldInfo.ppxa = (info->stay.ppxa != NULL ) ?
-			info->stay.ppxa : &DummyPPxAppInfo;
-	OldInfo.pxc = &DummyPxc;
-
-	SleepStayInstance(info, &OldInfo);
 
 	// 通知を有効に
 	ppxa->Function(ppxa, PPXCMDID_REQUIRE_CLOSETHREAD, 0);
@@ -529,6 +529,7 @@ int RunScript(PPXAPPINFOW *ppxa, PPXMCOMMANDSTRUCT *pxc, int file, BOOL module)
 	OldPPxInfoStruct OldInfo;
 
 	InvokeName[0] = '\0';
+	OldInfo.ppxa = NULL;
 	if ( (pxc->paramcount > 0) && (pxc->param[0] == ':') ){
 		pxcbuf = *pxc;
 		pxc = &pxcbuf;
@@ -584,7 +585,7 @@ int RunScript(PPXAPPINFOW *ppxa, PPXMCOMMANDSTRUCT *pxc, int file, BOOL module)
 	info->ppxa = ppxa;
 	info->pxc = pxc;
 
-	if ( !newctx && (info->stay.mode >= ScriptStay_Stay) ){
+	if ( !newctx && (info->stay.mode >= ScriptStay_Stay) ){ // 常駐インスタンスの利用確認
 		const WCHAR *param = pxc->param;
 		int paramcount = pxc->paramcount;
 
@@ -678,9 +679,8 @@ int RunScript(PPXAPPINFOW *ppxa, PPXMCOMMANDSTRUCT *pxc, int file, BOOL module)
 	if ( !error && (info->stay.mode >= ScriptStay_Stay) ){ // 常駐時
 		if ( info->stay.threadID == 0 ){ // 未登録なので登録
 			ChainStayInstance(info);
-		}else{
-			SleepStayInstance(info, &OldInfo);
 		}
+		SleepStayInstance(info, &OldInfo);
 	}else{ // 非常駐時
 		info->stay.entry--;
 		CloseInstance(info);
