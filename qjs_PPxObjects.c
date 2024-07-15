@@ -21,7 +21,7 @@ JSClassID ClassID_Arguments = 0;
 
 DWORD StayInstanseIDserver = ScriptStay_FirstAutoID; // インスタンス番号振出し
 
-typedef struct {
+typedef union {
 	int index;
 	WCHAR comment[CMDLINESIZE];
 } PPXUPTR_ENTRYCOMMENT;
@@ -532,6 +532,39 @@ JSValue GetPaneGroupCount(JSContext *ctx, JSValueConst this_obj)
 	return JS_NewInt32(ctx, tmp[1]);
 }
 
+JSValue GetPaneGroupList(JSContext *ctx, JSValueConst this_obj)
+{
+	int tmpc[2];
+	PPXUPTR_TABINDEXSTRW tmp;
+	PANEINFO *info = GetPaneInfo(this_obj);
+	WCHAR param[CMDLINESIZE];
+	int index = 0, maxindex;
+
+	tmpc[0] = info->index;
+	tmpc[1] = 0;
+	if ( info->ppxa->Function(info->ppxa, PPXCMDID_COMBOGROUPCOUNT, &tmpc) != PPXA_NO_ERROR ){
+		return JS_NULL;
+	}
+	maxindex = tmpc[1];
+
+	JSValue array = JS_NewArray(ctx);
+
+	for (; index < maxindex; index++){
+		JSValue jsitem;
+
+		tmp.pane = info->index;
+		tmp.tab = index;
+		tmp.str = param;
+		param[0] = '\0';
+		if ( info->ppxa->Function(info->ppxa, PPXCMDID_COMBOGROUPNAME, &tmp) !=  PPXA_NO_ERROR ){
+			break;
+		}
+		jsitem = JS_NewStringW(ctx, param);
+		JS_SetPropertyUint32(ctx, array, index, jsitem);
+	}
+	return array;
+}
+
 JSValue GetPaneGroupName(JSContext *ctx, JSValueConst this_obj)
 {
 	PPXUPTR_TABINDEXSTRW tmp;
@@ -650,6 +683,7 @@ static const JSCFunctionListEntry PaneFunctionList[] = {
 
 	JS_CGETSET_DEF("GroupIndex", GetPaneGroupIndex, SetPaneGroupIndex),
 	JS_CGETSET_DEF("GroupCount", GetPaneGroupCount, NULL),
+	JS_CGETSET_DEF("GroupList", GetPaneGroupList, NULL),
 	JS_CGETSET_DEF("GroupName", GetPaneGroupName, SetPaneGroupName),
 
 #if !MODIFY_QJS
@@ -780,6 +814,7 @@ JSValue GetEntryPointMark(JSContext *ctx, JSValueConst this_obj, int magic)
 	ENTRYINFO *info = GetEntryInfo(this_obj);
 	int result;
 
+	result = info->index;
 	info->ppxa->Function(info->ppxa, magic, &result);
 	if ( result == -1 ){
 		result = 0;
