@@ -537,7 +537,6 @@ JSValue GetPaneGroupList(JSContext *ctx, JSValueConst this_obj)
 	int tmpc[2];
 	PPXUPTR_TABINDEXSTRW tmp;
 	PANEINFO *info = GetPaneInfo(this_obj);
-	WCHAR param[CMDLINESIZE];
 	int index = 0, maxindex;
 
 	tmpc[0] = info->index;
@@ -547,6 +546,31 @@ JSValue GetPaneGroupList(JSContext *ctx, JSValueConst this_obj)
 	}
 	maxindex = tmpc[1];
 
+#if 1 // TABãÊêÿÇËï∂éöóÒî≈
+	WCHAR *listbuf, *listptr;
+
+	listbuf = listptr = malloc(maxindex * CMDLINESIZE * sizeof(WCHAR));
+
+	for (; index < maxindex; index++){
+		tmp.pane = info->index;
+		tmp.tab = index;
+		if ( index == 0 ){
+			tmp.str = listptr;
+		}else{
+			tmp.str = listptr + 1;
+			*listptr = '\t';
+		}
+		if ( info->ppxa->Function(info->ppxa, PPXCMDID_COMBOGROUPNAME, &tmp) !=  PPXA_NO_ERROR ){
+			*listptr = '\0';
+			break;
+		}
+		listptr += wcslen(listptr);
+	}
+	JSValue jsresult = JS_NewStringW(ctx, listbuf);
+	free(listbuf);
+	return jsresult;
+#else // îzóÒî≈
+	WCHAR param[CMDLINESIZE];
 	JSValue array = JS_NewArray(ctx);
 
 	for (; index < maxindex; index++){
@@ -563,6 +587,7 @@ JSValue GetPaneGroupList(JSContext *ctx, JSValueConst this_obj)
 		JS_SetPropertyUint32(ctx, array, index, jsitem);
 	}
 	return array;
+#endif
 }
 
 JSValue GetPaneGroupName(JSContext *ctx, JSValueConst this_obj)
@@ -1071,7 +1096,7 @@ JSValue EntryReset(JSContext *ctx, JSValueConst this_obj, int argc, JSValueConst
 	ENTRYINFO *info = GetEntryInfo(this_obj);
 
 	info->index = -1;
-	info->enummode = ENUMENTRY_WITHMARK;
+	if ( info->enummode < 0 ) info->enummode = -info->enummode;
 	return JS_UNDEFINED;
 }
 
