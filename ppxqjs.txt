@@ -1,11 +1,15 @@
  ------------------------------------------------------------------------------
-	Paper Plane xUI  QuickJS Script Module T7   Copyright (c)2024 TORO
+	Paper Plane xUI  QuickJS Script Module T11   Copyright (c)2024 TORO
  ------------------------------------------------------------------------------
 
 	QuickJS ( https://bellard.org/quickjs/ ) を利用して PPx 上で
 	Javascript を実行するPPx Module です。
 	WSH の JScript とある程度の互換性を備え、WSH Script Module と
 	スクリプトを共有しやすくなっています。
+
+	WSH 版との性能の比較としては、実行速度が jscript.dll と
+	jscript9.dll との中間程度であって、最初の初期化に掛かる時間が
+	多少遅い、となります。
 
 
 ●現在の仕様
@@ -49,7 +53,7 @@
 	・PPx.Arguments の引数記載 "PPx.Arguments(n)" ができなくなりました。
 	  PPx.Argument(n) に変更が必要です。
 
-	・new Enumerator の代わりに for ( of ) を使用してください。
+	・new Enumerator() の代わりに for ( of ) を使用してください。
 	  WSH版と共通化したい場合は、PPx.Enumerator() を使用するか、
 	  PPxの列挙可能オブジェクトに用意されている atEnd / moveNext を
 	  使用してください。
@@ -361,6 +365,8 @@ E_cr	= {
 	指定が無いときは 1 に相当します。
 	「PPx.Quit(-1)」と result に -1 を指定すると、*script コマンド以降の
 	コマンド実行を中止します。
+	「PPx.Quit 0」と result に 0 を指定すると、「コマンド*scriptはあ
+	りません」エラーになるので、指定しないでください。
 
 	例) *script sample.js %: explorer
 	    sample.js 内で PPx.Quit()を実行すると explorer が実行される
@@ -402,12 +408,12 @@ E_cr	= {
     		PPx.log("message")		関数
     res =	PPx.GetFileInformation("filename"[,mode]) 関数
     res =	PPx.Clipboard			プロパティ(R/W)
+    		PPx.setValue("key","value")	関数
     value =	PPx.getValue("key")		関数
-		PPx.setValue("key", value)	関数
-    value =	PPx.getProcessValue("key")		関数
 		PPx.setProcessValue("key", value)	関数
-    value =	PPx.getIValue("key")		関数
+    value =	PPx.getProcessValue("key")		関数
 		PPx.setIValue("key", value)	関数
+    value =	PPx.getIValue("key")		関数
     		PPx.Include("filename")		関数
 
 *窓情報(PPx共用)
@@ -465,7 +471,7 @@ E_cr	= {
 
 *指定位置のエントリの情報(PPc専用)
     entry =	PPx.Entry			オブジェクト
-	entry =	    entry.Item(n)		関数
+	entry =	    entry.Item([n])		関数
 	count =	    entry.Count			プロパティ(R)
 	count =	    entry.length		プロパティ(R)
 	index =	    entry.index			プロパティ(R/W)
@@ -486,12 +492,12 @@ E_cr	= {
 
 	state =	    entry.State			プロパティ(R/W)
 	color =	    entry.ExtColor		プロパティ(R/W)
-	highlight = entry.Highlight		プロパティ(R/W)
 	comment =   entry.Comment		プロパティ(R/W)
 	comment =   entry.GetComment(id)	関数
 	            entry.SetComment(id,text)	関数
 	text =	    entry.Information		プロパティ(R)
 		    entry.Hide			プロパティ(R)
+	highlight = entry.Highlight		プロパティ(R/W)
 	entry =	    entry.AllEntry		プロパティ(R)
 	entry =	    entry.AllMark		プロパティ(R)
 	endstate =  entry.atEnd()		関数
@@ -500,7 +506,7 @@ E_cr	= {
 
 *一体化時の各ペインの情報(PPc,一体化時専用)
     vpane = PPx.Pane				オブジェクト
-	vpane =	    vpane.Item(n)		関数
+	vpane =	    vpane.Item([n])		関数
 	count =	    vpane.Count			プロパティ(R)
 	count =	    vpane.length		プロパティ(R)
 	index =	    vpane.index			プロパティ(R/W)
@@ -516,7 +522,7 @@ E_cr	= {
 
 *一体化時の各タブの情報(PPc,一体化時専用,タブがないときは該当ペインの情報)
     tab = PPx.Pane.Tab				オブジェクト
-	tab =	    tab.Item(n)			関数
+	tab =	    tab.Item([n])		関数
 	count =	    tab.Count			プロパティ(R)
 	count =	    tab.length			プロパティ(R)
 	index =	    tab.index			プロパティ(R/W)
@@ -544,7 +550,6 @@ E_cr	= {
     ・version = PPx.ModuleVersion		プロパティ、読み込み専用
 
 	Script Module のバージョンを取得します。R3 なら 3 の整数になります。
-	※テスト版なので 0 です
 
 
     ・version = PPx.PPxVersion			プロパティ、読み込み専用
@@ -587,7 +592,7 @@ E_cr	= {
 	たりすることができ、より高度な処理をおこなうことができます。
 	常駐時の挙動については、「●常駐時の挙動について」を参照してください。
 
-	次の値を指定することができます。
+	・次の値を指定することができます。
 
 	0	スクリプトソースは毎回読み込まれる(WSH版, QuickJS版初期値)
 		常駐時にこの値を指定すると常駐の解除ができます。
@@ -606,8 +611,8 @@ E_cr	= {
 		別インスタンスになります。
 
 
-	値を取得したときは次の値になります。値は特殊環境変数等に記憶する
-	ことで次回の呼び出しに使用できます。
+	・値を取得したときは次の値になります。値は特殊環境変数等に記憶して
+	　次回の呼び出しに使用できます。
 
 	0	常駐していない
 	1	ソースをキャッシュしている。※QuickJS版では使われません。
@@ -628,6 +633,7 @@ E_cr	= {
 	     スクリプト名・スクリプトはインスタンスの識別に使われるため、
 	     前回実行したスクリプトと同一にする必要があります。
 
+
 	  2) *script :関数名, スクリプトファイル名 [,パラメータ1...]
 	     *js :関数名, スクリプト [,パラメータ1...]
 
@@ -636,13 +642,25 @@ E_cr	= {
 	     前回実行したスクリプトと同一にする必要があります。
 	     ※ let / const の関数は扱えません。
 
-	  3) *script :インスタンス番号, [スクリプトファイル名] [,パラメータ1..]
+
+	  3) *script :インスタンス番号, [スクリプトファイル名] [,パラメータ1...]
 	     *js :インスタンス番号, [スクリプト] [,パラメータ1...]
 
 	     指定インスタンス番号のインスタンスでスクリプトを実行します。
 	     インスタンスがない場合は、常駐も行われます。
-	     スクリプトがない場合は、常駐しているインスタンスの
+
+	     スクリプトがない場合、またはスクリプトファイル名が常駐した
+	     スクリプトのファイル名と同じ場合は、常駐しているインスタンスの
 	     ppx_resume([パラメータ]) を実行します。
+
+	     スクリプトファイル名が常駐したスクリプトのファイル名と異なる
+	     場合は、同じインスタンスで今回のスクリプトを実行します。
+
+	     また、「*script %si"insno","%1%\script.js"」といったコマンド
+	     ラインとして、script.js 中で、PPx.setIValue = ":12345" と
+	     インスタンス番号を指定することもできます。
+	     このとき、%si"insno" の中身が空でも script.js を実行できます。
+
 
 	  4) *script ":インスタンス番号,関数" [,パラメータ1...]
 	     *js ":インスタンス番号,関数" [,パラメータ1...]
@@ -658,7 +676,7 @@ E_cr	= {
 	ex)	PPx.Execute("explorer /e,%1")
 		PPx.Execute("command %: *closeppx")
 
-	オブジェクトに登録されていない機能を使いたいときはこの execute を
+	オブジェクトに登録されていない機能を使いたいときはこの Execute を
 	使えば大抵実行できます。
 
 	実行後のエラーコードを得ることもできます。正常に実行した
@@ -808,7 +826,7 @@ E_cr	= {
 	になります。
 
 
-    ・width = PPx.EntryDisplayY			プロパティ、読み込み専用
+    ・height = PPx.EntryDisplayY		プロパティ、読み込み専用
 
 	エントリの高さ方向の表示数です。例えば 10 だと１０行表示という
 	ことになります。
@@ -906,7 +924,7 @@ E_cr	= {
 	別個のディレクトリで実施したりすることを防止できます。
 
 	n = 0 のときは読み込みのみの値、n = 1 のときは読み込み+更新の値です。
-	尚、count の値はオーバーフローを考慮して、値の大小比較ではなく、
+	尚、count の値はオーバーフローが起きるため、値の大小比較ではなく、
 	一致・不一致の比較をしてください。
 
 
@@ -954,7 +972,6 @@ E_cr	= {
 
 
 *カーソル上のエントリの情報(PPc専用)
-
     ・index = PPx.EntryIndex			プロパティ、読み書き可能
 
 	現在窓のカーソル位置が取得できます。先頭のカーソル位置は 0 です。
@@ -975,7 +992,9 @@ E_cr	= {
 
     ・attributes = PPx.EntryAttributes		プロパティ、読み込み専用
 
-	カーソル上のエントリの属性です。属性は、以下の値の総和です。
+	カーソル上のエントリの属性です。属性は、Scripting.
+	FileSystemObject.Attributes で得られる値と同じく、以下の値の
+	総和です。
 
 	Bit	10進数	16進数
 	 0	   1	    1	読み込み専用
@@ -1124,7 +1143,8 @@ E_cr	= {
 	  マーク順に名前を表示、マークがなければ何もしない
 
 
-	.Item(n)	n番目(0からカウント)の引数を示す関数です。
+	.Item([n])	n番目(0からカウント)の引数を示す関数です。
+			nを省略した場合は .index の値になります。
 
 	.Count		全エントリ数を示すプロパティ(R)です。
 	.length		.Countと.lengthはPPx.EntryDisplayCount と同じ値です。
@@ -1232,7 +1252,11 @@ E_cr	= {
 
 	  また、列挙( for ( ... of PPx.Pane ) )が使用できます。
 
-	.Item(n)	前記ペイン指定をしたペインを示す関数です。
+	例) for ( var v of PPx.Pane ){ PPx.Echo(v.Tab.IDName); }
+	  ペイン別のアクティブタブの IDName を表示。
+	  一体化窓でなければ何もしない
+
+	.Item([n])	前記ペイン指定をしたペインを示す関数です。
 			vpane(n) と省略可能です。
 
 	.Count		全ペイン数を示すプロパティ(R)です。
@@ -1284,7 +1308,8 @@ E_cr	= {
 	※WSHでは、.Tab か .Tab(n) の記載が可能ですが、 .Tab() はできません。
 
 
-	.Item(n)	前記タブ指定をしたタブを示す関数です。
+
+	.Item([n])	前記タブ指定をしたタブを示す関数です。
 
 	.Count		このペインにおける全タブ数を示すプロパティ(R)です。
 	.length
@@ -1393,9 +1418,12 @@ E_cr	= {
 
 	・スクリプトの各オブジェクトは、インスタンス単位で管理されており、
 	  あるインスタンスから他のインスタンスのオブジェクトを直接参照
-	  することはできません。
+	  することはできません。また、異なるID、異なるスレッドの
+	  インスタンスも参照できません。参照が必要なときは、特殊環境変数、
+	  ファイル、カスタマイズ(S_xxx等)等を使用してください。
 
-	  StayMode = 0/1 のときは、スクリプトの実行の度にインスタンスを
+
+	・StayMode = 0/1 のときは、スクリプトの実行の度にインスタンスを
 	  生成・破棄されます。
 
 	  StayMode ≧2 のときは、StayMode = 0 として常駐を終わらせるか、
@@ -1429,6 +1457,16 @@ E_cr	= {
 	・*scirpt 等により実行中でないときは、親 PPx の機能(PPx関係の
 	  オブジェクトの殆ど)、及びパラメータ(Argument等)は使用できません。
 	  イベントが発生したとき、ppx_finally 時、等にこの状態になります。
+
+
+	・実行元窓の常駐しているインスタンスは、%*stayinfo() で取得できます。
+	  %*stayinfo()		実行元 PPx (実行元窓のみ、他の窓は非列挙)の
+	  			インスタンス番号を空白区切りで取得します。
+	  			出力例) 12345 1073741825 1073741824
+	  %*stayinfo(番号)	実行元 PPx (実行元窓のみ、他の窓は不可)の
+	  			指定番号（"123"又は":123"形式）の
+	  			インスタンスの有無を取得します。
+	  			インスタンスがあれば 1、なければ 0 となります。
 
 
 
@@ -1477,6 +1515,10 @@ SOFTWARE.
 
 
 ●履歴
+T11	2024/09/07
+・*script :インスタンス番号,スクリプトファイル名で同名常駐時は ppx_resume実行
+・常駐インスタンスの情報を取得する関数(%*stayinfo)を追加
+
 T10	2024/08/12
 ・PPx.Entry.Reset() が正常に機能しない場合があるのを修正
 ・PPx.Pane.GroupListの戻り値を文字列配列からタブ区切りの文字列に変更

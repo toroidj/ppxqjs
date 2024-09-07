@@ -22,6 +22,7 @@ FREECHAIN StayChains = {NULL, NULL}; // 常駐用の管理
 CRITICAL_SECTION StayLock;
 
 int RunScript(PPXAPPINFOW *ppxa, PPXMCOMMANDSTRUCT *pxc, int file, BOOL module);
+int StayInfo(PPXAPPINFOW *ppxa, PPXMCOMMANDSTRUCT *pxc);
 void FreeStayInstance(void);
 void CloseInstance(InstanceValueStruct *info);
 
@@ -52,6 +53,11 @@ __declspec(dllexport) int PPXAPI ModuleEntry(PPXAPPINFOW *ppxa, DWORD cmdID, PPX
 		}
 		if ( (pxs.command->commandhash == 0xd325157d) && !wcscmp(pxs.command->commandname, L"SCRIPTM") ){
 			return RunScript(ppxa, pxs.command, 1, TRUE);
+		}
+		if ( (pxs.command->commandhash == 0xd925fddf) &&
+			 (cmdID == PPXMEVENT_FUNCTION) &&
+			 !wcscmp(pxs.command->commandname, L"STAYINFO") ){
+			return StayInfo(ppxa, pxs.command);
 		}
 		return PPXMRESULT_SKIP;
 	}
@@ -530,10 +536,18 @@ int RunScript(PPXAPPINFOW *ppxa, PPXMCOMMANDSTRUCT *pxc, int file, BOOL module)
 
 	InvokeName[0] = '\0';
 	OldInfo.ppxa = NULL;
-	if ( (pxc->paramcount > 0) && (pxc->param[0] == ':') ){
-		pxcbuf = *pxc;
-		pxc = &pxcbuf;
-		CheckOption(pxc, &StayMode, InvokeName);
+	if ( pxc->paramcount > 0 ){
+		if ( pxc->param[0] == ':' ){
+			pxcbuf = *pxc;
+			pxc = &pxcbuf;
+			CheckOption(pxc, &StayMode, InvokeName);
+		}else if ( (pxc->param[0] == '\0') && (pxc->paramcount >= 2) ){ // 第１パラメータが無いときは、shift
+			// *script 変数(空 または :12345),source ができるようにする
+			pxcbuf = *pxc;
+			pxcbuf.paramcount--;
+			pxcbuf.param += 1; // '\0' をスキップ
+			pxc = &pxcbuf;
+		}
 	}
 
 	if ( pxc->resultstring != NULL ) pxc->resultstring[0] = '\0';
@@ -552,10 +566,10 @@ int RunScript(PPXAPPINFOW *ppxa, PPXMCOMMANDSTRUCT *pxc, int file, BOOL module)
 			chaininfo = (InstanceValueStruct *)nextchain->value;
 
 			if ( (chaininfo->stay.threadID == ThreadID) &&
+				 (chaininfo->stay.hWnd == hWnd) &&
 				 ((StayMode >= ScriptStay_Stay) ?
 				   (chaininfo->stay.mode == StayMode) :
-				   ((chaininfo->stay.hWnd == hWnd) &&
-					(wcscmp(chaininfo->stay.source, source) == 0))) ){
+				   (wcscmp(chaininfo->stay.source, source) == 0)) ){
 				info = chaininfo;
 				info->stay.entry++;
 				OldInfo.ppxa = info->ppxa;
@@ -598,12 +612,22 @@ int RunScript(PPXAPPINFOW *ppxa, PPXMCOMMANDSTRUCT *pxc, int file, BOOL module)
 					param += wcslen(param) + 1; // 次のパラメータに
 					paramcount--;
 				}
-			}else{	// インスタンス指定があるなら eval
-				char *image;
-				char *script = GetScriptSource(ppxa, pxc->param, &image, &script_len, file);
-				if ( script != NULL ){
-					result = JS_Eval(info->ctx, script, script_len, "<2nd>", JS_EVAL_TYPE_GLOBAL);
-					free(image);
+			}else{ // インスタンス指定がある
+				if ( file && (wcscmp(info->stay.source, pxc->param) == 0) ){
+					// 常駐時スクリプトファイルなら ppx_resume
+					strcpy(InvokeName, "ppx_resume");
+
+					if ( paramcount > 0 ){ // source をスキップ
+						param += wcslen(param) + 1; // 次のパラメータに
+						paramcount--;
+					}
+				}else{ // 常駐時スクリプト以外なら eval
+					char *image;
+					char *script = GetScriptSource(ppxa, pxc->param, &image, &script_len, file);
+					if ( script != NULL ){
+						result = JS_Eval(info->ctx, script, script_len, "<2nd>", JS_EVAL_TYPE_GLOBAL);
+						free(image);
+					}
 				}
 			}
 		}else{
@@ -739,4 +763,56 @@ WCHAR *GetJsLongString(JSContext *ctx, JSValueConst js_var, WCHAR *bufW)
 	// 失敗
 	bufW[0] = '\0';
 	return bufW;
+}
+
+const TCHAR InfoForm[] = L" %d";
+
+int StayInfo(PPXAPPINFOW *ppxa, PPXMCOMMANDSTRUCT *pxc)
+{
+	InstanceValueStruct *chaininfo;
+	FREECHAIN *chain = &StayChains, *nextchain;
+	DWORD ThreadID = GetCurrentThreadId();
+	HWND hWnd = ppxa->hWnd;
+	WCHAR *dest = pxc->resultstring, *destmax = dest + (CMDLINESIZE - 12);
+	int StayMode = ScriptStay_None;
+
+	dest[0] = '\0';
+
+	if ( pxc->paramcount > 0 ){
+		const WCHAR *source = pxc->param;
+
+		if ( *source == ':' ) source++;
+		StayMode = GetIntNumberW(source);
+		if ( StayMode >= ScriptStay_Stay ){
+			dest[0] = '0';
+			dest[1] = '\0';
+		}
+	}
+
+	if ( StayChains.next == NULL ) return PPXMRESULT_DONE;
+
+	for(;;){
+		nextchain = chain->next;
+		if ( nextchain == NULL ) break;
+
+		chaininfo = (InstanceValueStruct *)nextchain->value;
+
+		if ( (chaininfo->stay.threadID == ThreadID) &&
+			 (chaininfo->stay.hWnd == hWnd) ){
+			// インスタンス指定有り→個別結果
+			if ( StayMode >= ScriptStay_Stay ){
+				if ( chaininfo->stay.mode == StayMode ){
+					dest[0] = '1';
+					break;
+				}
+			}else{ // 指定無し→一覧
+				dest += wsprintf(dest, (dest == pxc->resultstring) ?
+						InfoForm + 1 : InfoForm,
+						chaininfo->stay.mode);
+				if ( dest >= destmax ) break;
+			}
+		}
+		chain = nextchain;
+	}
+	return PPXMRESULT_DONE;
 }
