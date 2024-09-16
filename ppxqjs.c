@@ -23,8 +23,9 @@ CRITICAL_SECTION StayLock;
 
 int RunScript(PPXAPPINFOW *ppxa, PPXMCOMMANDSTRUCT *pxc, int file, BOOL module);
 int StayInfo(PPXAPPINFOW *ppxa, PPXMCOMMANDSTRUCT *pxc);
-void FreeStayInstance(void);
+void FreeStayInstance(PPXAPPINFOW *ppxa, BOOL terminate);
 void CloseInstance(InstanceValueStruct *info);
+extern PPXAPPINFOW DummyPPxAppInfo;
 
 BOOL WINAPI DllMain(HINSTANCE hInst, DWORD reason, LPVOID reserved)
 {
@@ -64,18 +65,26 @@ __declspec(dllexport) int PPXAPI ModuleEntry(PPXAPPINFOW *ppxa, DWORD cmdID, PPX
 
 	if ( cmdID == PPXMEVENT_CLEANUP ){
 		// 1.97 以前は CleanUp 時に CoUninitialize() になってることがあるので無効に
-		if ( PPxVersion > 19700 ) FreeStayInstance();
+		if ( PPxVersion > 19700 ) FreeStayInstance(&DummyPPxAppInfo, TRUE);
 		return PPXMRESULT_DONE;
 	}
 
 	if ( cmdID == PPXMEVENT_CLOSETHREAD ){ // 1.97+1 から有効
-		FreeStayInstance();
+		FreeStayInstance(ppxa, TRUE);
+		return PPXMRESULT_DONE;
+	}
+
+	if ( cmdID == PPXMEVENT_DESTROY ){ // 1.98+4 から有効
+		FreeStayInstance(ppxa, FALSE);
 		return PPXMRESULT_DONE;
 	}
 
 	if ( cmdID == PPXM_INFORMATION ){
 		if ( pxs.info->infotype == 0 ){
-			pxs.info->typeflags = PPMTYPEFLAGS(PPXMEVENT_CLEANUP) |
+			pxs.info->typeflags = PPMTYPEFLAGS(PPXM_INFORMATION) |
+					PPMTYPEFLAGS(PPXMEVENT_CLEANUP) |
+					PPMTYPEFLAGS(PPXMEVENT_CLOSETHREAD) |
+					PPMTYPEFLAGS(PPXMEVENT_DESTROY) |
 					PPMTYPEFLAGS(PPXMEVENT_COMMAND) |
 					PPMTYPEFLAGS(PPXMEVENT_FUNCTION);
 			wcscpy(pxs.info->copyright, L"PPx QucickJS script Module T" SCRIPTMODULEVERSTR L"  Copyright (c)TORO");
@@ -343,7 +352,7 @@ void DropStayInstance(InstanceValueStruct *info)
 }
 
 // 同じスレッドの常駐解放
-void FreeStayInstance(void)
+void FreeStayInstance(PPXAPPINFOW *ppxa, BOOL terminate)
 {
 	InstanceValueStruct *chaininfo;
 	DWORD ThreadID = GetCurrentThreadId();
@@ -354,17 +363,22 @@ void FreeStayInstance(void)
 		if ( nextchain == NULL ) break;
 
 		chaininfo = (InstanceValueStruct *)nextchain->value;
-		if ( chaininfo->stay.threadID == ThreadID ){
+
+		if ( (chaininfo->stay.threadID == ThreadID) &&
+			 (terminate ||
+			  (chaininfo->stay.hWnd == ppxa->hWnd)) ){
 			chain->next = nextchain->next; // drop
-
 			JSValue global = JS_GetGlobalObject(chaininfo->ctx);
-
 			JSValue callfunc = JS_GetPropertyStr(chaininfo->ctx, global, "ppx_finally");
 			if ( !JS_IsNull(callfunc) ){
+				PPXAPPINFOW *oldppxa;
 				JSValue result;
 
+				oldppxa = chaininfo->stay.ppxa;
+				chaininfo->stay.ppxa = ppxa;
 				result = JS_Call(chaininfo->ctx, callfunc, global, 0, NULL);
 				JS_FreeValue(chaininfo->ctx, result);
+				chaininfo->stay.ppxa = oldppxa;
 			}
 			JS_FreeValue(chaininfo->ctx, callfunc);
 			JS_FreeValue(chaininfo->ctx, global);

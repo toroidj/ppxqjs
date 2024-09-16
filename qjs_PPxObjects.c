@@ -1305,6 +1305,7 @@ static JSValue PPxGetEntry(JSContext *ctx, JSValueConst this_obj)
 
 //=========================================================== PPx.Arguments
 typedef struct {
+	PPXAPPINFOW *ppxa;
 	PPXMCOMMANDSTRUCT *pxc;
 	int index;
 } ARGUMENTSINFO;
@@ -1331,23 +1332,59 @@ JSValue GetArgumentsIndex(JSContext *ctx, JSValueConst this_obj)
 	return JS_NewInt32(ctx, GetArgumentsInfo(this_obj)->index);
 }
 
+JSValue GetArgumentItem(JSContext *ctx, PPXAPPINFOW *ppxa, PPXMCOMMANDSTRUCT *pxc, int index)
+{
+	int imax;
+
+	if ( index >= 0 ){
+		imax = pxc->paramcount - 1;
+		if ( index < imax ){
+			const WCHAR *argptr;
+
+			argptr = pxc->param;
+			for ( ;;){
+				argptr += wcslen(argptr) + 1;
+				if ( index-- <= 0 ) break;
+			}
+			return JS_NewStringW(ctx, argptr);
+		}
+	}else{
+		BSTR param;
+		JSValue jsraw;
+
+		param = (BSTR)ppxa->Function(ppxa, PPXCMDID_GETRAWPARAM, NULL);
+		if ( param != NULL ){
+			const WCHAR *ptr;
+			// 1つ目(ファイル・スクリプト)をスキップ
+			ptr = param;
+			while ( (*ptr == ' ') || (*ptr == '\t') ) ptr++;
+			if ( *ptr == '\"' ){
+				ptr++;
+				for (;;){
+					if ( *ptr == '\0' ) break;
+					if ( *ptr++ == '\"' ) break;
+				}
+				while ( (*ptr == ' ') || (*ptr == '\t') ) ptr++;
+			}else {
+				for (;;){
+					if ( (*ptr == '\0') || (*ptr == ',') ) break;
+					ptr++;
+				}
+			}
+			if ( *ptr == ',' ) ptr++;
+			jsraw = JS_NewStringW(ctx, ptr);
+			SysFreeString(param);
+			return jsraw;
+		}
+	}
+	return JS_NULL;
+}
+
 JSValue GetArgumentsValue(JSContext *ctx, JSValueConst this_obj)
 {
 	ARGUMENTSINFO *info = GetArgumentsInfo(this_obj);
 
-	int index = info->index;
-
-	if ( (index >= 0) && (index < (info->pxc->paramcount - 1)) ){
-		const WCHAR *argptr;
-
-		argptr = info->pxc->param;
-		for ( ;;){
-			argptr += wcslen(argptr) + 1;
-			if ( index-- <= 0 ) break;
-		}
-		return JS_NewStringW(ctx, argptr);
-	}
-	return JS_NULL;
+	return GetArgumentItem(ctx, info->ppxa, info->pxc, info->index);
 }
 
 JSValue ArgumentsToString(JSContext *ctx, JSValueConst this_obj, int argc, JSValueConst *argv)
@@ -1402,6 +1439,7 @@ JSValue ArgumentsIterator(JSContext *ctx, JSValueConst this_obj, int argc, JSVal
 	ARGUMENTSINFO *info = GetArgumentsInfo(this_obj);
 	JSValue newobj = JS_NewObjectClass(ctx, ClassID_Arguments);
 	ARGUMENTSINFO *newinfo = malloc(sizeof(ARGUMENTSINFO));
+	newinfo->ppxa = info->ppxa;
 	newinfo->pxc = info->pxc;
 	newinfo->index = -1;
 	JS_SetOpaque(newobj, newinfo);
@@ -1444,6 +1482,7 @@ JSClassDef ArgumentsClassDef = {
 static JSValue PPxGetArguments(JSContext *ctx, JSValueConst this_obj)
 {
 	JSRuntime *rt = JS_GetRuntime(ctx);
+	InstanceValueStruct *info = GetCtxInfo(ctx);
 
 	if ( ClassID_Arguments == 0 ) JS_NewClassID(&ClassID_Arguments);
 	if ( !JS_IsRegisteredClass(rt, ClassID_Arguments) ){ // クラスを登録
@@ -1453,10 +1492,11 @@ static JSValue PPxGetArguments(JSContext *ctx, JSValueConst this_obj)
 		JS_SetClassProto(ctx, ClassID_Arguments, ProtoClass);
 	}
 	JSValue newobj = JS_NewObjectClass(ctx, ClassID_Arguments);
-	ARGUMENTSINFO *info = malloc(sizeof(ARGUMENTSINFO));
-	info->pxc = GetCtxPxc(ctx);
-	info->index = 0;
-	JS_SetOpaque(newobj, info);
+	ARGUMENTSINFO *arginfo = malloc(sizeof(ARGUMENTSINFO));
+	arginfo->ppxa = info->ppxa;
+	arginfo->pxc = info->pxc;
+	arginfo->index = 0;
+	JS_SetOpaque(newobj, arginfo);
 	return newobj;
 }
 
@@ -1783,51 +1823,12 @@ static JSValue PPxGetResult(JSContext *ctx, JSValueConst this_obj)
 
 static JSValue PPxArgument(JSContext *ctx, JSValueConst this_obj, int argc, JSValueConst *argv)
 {
-	InstanceValueStruct *info = GetCtxInfo(ctx);
-	int index, imax;
+	int index;
 
 	if ( (argc > 0) && !JS_ToInt32(ctx, &index, argv[0]) ){
-		if ( index >= 0 ){
-			imax = info->pxc->paramcount - 1;
-			if ( index < imax ){
-				const WCHAR *argptr;
+		InstanceValueStruct *info = GetCtxInfo(ctx);
 
-				argptr = info->pxc->param;
-				for ( ;;){
-					argptr += wcslen(argptr) + 1;
-					if ( index-- <= 0 ) break;
-				}
-				return JS_NewStringW(ctx, argptr);
-			}
-		}else{
-			BSTR param;
-			JSValue jsraw;
-
-			param = (BSTR)info->ppxa->Function(info->ppxa, PPXCMDID_GETRAWPARAM, NULL);
-			if ( param != NULL ){
-				const WCHAR *ptr;
-				// 1つ目(ファイル・スクリプト)をスキップ
-				ptr = param;
-				while ( (*ptr == ' ') || (*ptr == '\t') ) ptr++;
-				if ( *ptr == '\"' ){
-					ptr++;
-					for (;;){
-						if ( *ptr == '\0' ) break;
-						if ( *ptr++ == '\"' ) break;
-					}
-					while ( (*ptr == ' ') || (*ptr == '\t') ) ptr++;
-				}else {
-					for (;;){
-						if ( (*ptr == '\0') || (*ptr == ',') ) break;
-						ptr++;
-					}
-				}
-				if ( *ptr == ',' ) ptr++;
-				jsraw = JS_NewStringW(ctx, ptr);
-				SysFreeString(param);
-				return jsraw;
-			}
-		}
+		return GetArgumentItem(ctx, info->ppxa, info->pxc, index);
 	}
 	return JS_NULL;
 }
