@@ -1,5 +1,5 @@
  ------------------------------------------------------------------------------
-	Paper Plane xUI  QuickJS Script Module T12   Copyright (c)2024 TORO
+	Paper Plane xUI  QuickJS Script Module R1   Copyright (c)2024 TORO
  ------------------------------------------------------------------------------
 
 	QuickJS ( https://bellard.org/quickjs/ ) を利用して PPx 上で
@@ -515,10 +515,10 @@ E_cr	= {
 	endstate =  vpane.atEnd()		関数
 		    vpane.moveNext()		関数
 		    vpane.Reset()		関数
-(試作)	g_index =   vpane.GroupIndex		プロパティ(R/W)
-(試作)	count =     vpane.GroupCount		プロパティ(R)
-(試作)	str_array = vpane.GroupList		プロパティ(R)
-(試作)	name =      vpane.GroupName		プロパティ(R/W)
+	g_index =   vpane.GroupIndex		プロパティ(R/W)
+	count =     vpane.GroupCount		プロパティ(R)
+	str_array = vpane.GroupList		プロパティ(R)
+	name =      vpane.GroupName		プロパティ(R/W)
 
 *一体化時の各タブの情報(PPc,一体化時専用,タブがないときは該当ペインの情報)
     tab = PPx.Pane.Tab				オブジェクト
@@ -1275,12 +1275,12 @@ E_cr	= {
 	.atEnd(), .moveNext(), .Reset()
 			WSH版でも使える列挙機能です
 
-(試作)	.GroupIndex	アクティブグループ位置のプロパティ(R/W)です。
+	.GroupIndex	アクティブグループ位置のプロパティ(R/W)です。
 			代入(set)でアクティブグループを変更できます。
-(試作)	.GroupName	アクティブグループのグループ名のプロパティ(R/W)です。
+	.GroupName	アクティブグループのグループ名のプロパティ(R/W)です。
 			代入(set)でグループ名を変更できます。
-(試作)	.GroupCount	ペインのタブグループ数のプロパティ(R)です。
-(試作)	.GroupList	ペインのタブグループ一覧をtab区切りの文字列で返します。
+	.GroupCount	ペインのタブグループ数のプロパティ(R)です。
+	.GroupList	ペインのタブグループ一覧をtab区切りの文字列で返します。
 			配列にする場合は、次のようにしてください。
 			list = PPx.Pane.GroupList.split('\t');
 
@@ -1514,6 +1514,9 @@ SOFTWARE.
 
 
 ●履歴
+R1	2024/09/22
+・常駐時にPPxが終了したときの挙動を調整した
+
 T12	2024/09/16
 ・ppx_finally を一行編集終了時に実行できるように(要 PPx 1.98+4)
 ・PPx.Arguments.Item(-1)が実装させていなかったのを修正

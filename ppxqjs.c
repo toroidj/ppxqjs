@@ -383,7 +383,13 @@ void FreeStayInstance(PPXAPPINFOW *ppxa, BOOL terminate)
 			JS_FreeValue(chaininfo->ctx, callfunc);
 			JS_FreeValue(chaininfo->ctx, global);
 
-			CloseInstance(chaininfo);
+			// 強制終了、又は再入状態ではない→ここで終了する
+			if ( terminate || (chaininfo->stay.entry < 0) ){
+				CloseInstance(chaininfo);
+			}else{ // 再入しているので、常駐の解除指示を行う
+				chaininfo->stay.mode = ScriptStay_None;
+			}
+
 			chain = &StayChains;
 			continue;
 		}

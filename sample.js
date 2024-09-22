@@ -5,6 +5,8 @@ PPx.report(
 	"\r\n● sample.js\r\n"+
 	"Script Engine: " + PPx.ScriptEngineName + "\r\n" +
 	"Engine Version: " + PPx.ScriptEngineVersion + "\r\n" +
+	"Module Version: R" + PPx.ModuleVersion + "\r\n" +
+	"PPx Version: " + PPx.PPxVersion / 100.0 + "\r\n" +
 	"ScriptFullName: " + PPx.ScriptFullName + "\r\n" +
 	"ScriptName: " + PPx.ScriptName + "\r\n" +
 	"WindowIDName: " + PPx.WindowIDName + "\r\n" +
@@ -38,23 +40,42 @@ PPx.report("\r\n\r\n・PPx.Entry による、カーソル操作無しの列挙�
 // (WSH)items.DateXXX (V8)items.DateXXX.ToString()
 var items = PPx.Entry;
 if ( items.FirstMark == 0 ){ PPx.report("マークはありません\r\n"); }
-for ( ;; ){
-	PPx.report("Index: " + items.index + "\r\n" +
-		"Name: " + items.Name + "\r\n" +
-		"ShortName: " + items.ShortName + "\r\n" +
-		"Attributes: " + items.Attributes + "\r\n" +
-		"Size: " + items.Size + "\r\n" +
-		"Created: " + new Date(items.DateCreated) + "\r\n" +
-		"LastModified: " + new Date(items.DateLastModified) + "\r\n" +
-		"LastAccessed: " + new Date(items.DateLastAccessed) + "\r\n" +
-		"State :" + items.State + "\r\n" +
-		"Color :" + items.ExtColor + "\r\n" +
-		"Comment: " + items.Comment + "\r\n" +
-		"Comment 1: " + items.GetComment(1) + "\r\n" +
-		"Comment 2: " + items.GetComment(2) + "\r\n" +
-		"Comment 3: " + items.GetComment(3) + "\r\n\r\n"
-	);
-	if ( items.NextMark == 0 ) break;
+if ( PPx.option("Date") != false ){ // Date オブジェクトが機能するときの例
+	for ( ;; ){
+		PPx.report("Index: " + items.index + "\r\n" +
+			"Name: " + items.Name + "\r\n" +
+			"ShortName: " + items.ShortName + "\r\n" +
+			"Attributes: " + items.Attributes + "\r\n" +
+			"Size: " + items.Size + "\r\n" +
+			"Created: " + new Date(items.DateCreated) + "\r\n" +
+			"LastModified: " + new Date(items.DateLastModified) + "\r\n" +
+			"LastAccessed: " + new Date(items.DateLastAccessed) + "\r\n" +
+			"State :" + items.State + "\r\n" +
+			"Color :" + items.ExtColor + "\r\n" +
+			"Comment: " + items.Comment + "\r\n" +
+			"Comment 1: " + items.GetComment(1) + "\r\n" +
+			"Comment 2: " + items.GetComment(2) + "\r\n" +
+			"Comment 3: " + items.GetComment(3) + "\r\n\r\n"
+		);
+		if ( items.NextMark == 0 ) break;
+	}
+}else{ // QuickJS 32bit版は、Date オブジェクトが機能しないので日付関係が使用できない
+	for ( ;; ){
+		PPx.report("Index: " + items.index + "\r\n" +
+			"Name: " + items.Name + "\r\n" +
+			"ShortName: " + items.ShortName + "\r\n" +
+			"Attributes: " + items.Attributes + "\r\n" +
+			"Size: " + items.Size + "\r\n" +
+
+			"State :" + items.State + "\r\n" +
+			"Color :" + items.ExtColor + "\r\n" +
+			"Comment: " + items.Comment + "\r\n" +
+			"Comment 1: " + items.GetComment(1) + "\r\n" +
+			"Comment 2: " + items.GetComment(2) + "\r\n" +
+			"Comment 3: " + items.GetComment(3) + "\r\n\r\n"
+		);
+		if ( items.NextMark == 0 ) break;
+	}
 }
 
 // エントリ列挙の簡略記載例
