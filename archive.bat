@@ -1,7 +1,7 @@
 @echo off
-set RETAIL=1
+set RETAIL=0
 rem *** set value ***
-set arcname=ppxqjsR01.zip
+set arcname=ppxqjsR01p1.zip
 set readme=ppxqjs.txt
 set srcname=ppxqjsrc.7z
 set exename=ppxqjs

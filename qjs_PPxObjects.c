@@ -365,12 +365,14 @@ JSValue TabIteratorNext(JSContext *ctx, JSValueConst this_obj, int argc, JSValue
 {
 	TABINFO *info = GetTabInfo(this_obj);
 
-	int maxtabs = 0;
+	int maxtabs;
 
-	if ( info->TabIndex < 0) info->TabIndex = 0;
+	info->TabIndex++;
+	if ( info->TabIndex < 0 ) info->TabIndex = 0;
 
 	maxtabs = info->PaneIndex;
 	info->ppxa->Function(info->ppxa, PPXCMDID_COMBOTABCOUNT, &maxtabs);
+
 	info->done = info->TabIndex >= maxtabs;
 	return JS_DupValue(ctx, this_obj);
 }
@@ -379,7 +381,7 @@ JSValue TabIterator(JSContext *ctx, JSValueConst this_obj, int argc, JSValueCons
 {
 	TABINFO *info = GetTabInfo(this_obj);
 
-	JSValue newobj = JS_NewObjectClass(ctx, ClassID_Pane);
+	JSValue newobj = JS_NewObjectClass(ctx, ClassID_Tab);
 	TABINFO *tabinfo = malloc(sizeof(TABINFO));
 
 	tabinfo->ppxa = info->ppxa;
@@ -674,7 +676,8 @@ JSValue PaneIteratorNext(JSContext *ctx, JSValueConst this_obj, int argc, JSValu
 
 	int maxpanes = 0;
 
-	if ( info->index < 0) info->index = 0;
+	info->index++;
+	if ( info->index < 0 ) info->index = 0;
 	info->ppxa->Function(info->ppxa, PPXCMDID_COMBOSHOWPANES, &maxpanes);
 	info->done = info->index >= maxpanes;
 	return JS_DupValue(ctx, this_obj);
@@ -1311,27 +1314,6 @@ typedef struct {
 } ARGUMENTSINFO;
 #define GetArgumentsInfo(this_obj) ((ARGUMENTSINFO *)JS_GetOpaque(this_obj, ClassID_Arguments))
 
-JSValue ArgumentsItem(JSContext *ctx, JSValueConst this_obj, int argc, JSValueConst *argv)
-{
-	ARGUMENTSINFO *info = GetArgumentsInfo(this_obj);
-	ARGUMENTSINFO *newinfo = malloc(sizeof(ARGUMENTSINFO));
-	*newinfo = *info;
-	if ( argc > 0 ) JS_ToInt32(ctx, &newinfo->index, argv[0]);
-	JSValue newobj = JS_NewObjectClass(ctx, ClassID_Arguments);
-	JS_SetOpaque(newobj, newinfo);
-	return newobj;
-}
-
-JSValue GetArgumentsCount(JSContext *ctx, JSValueConst this_obj)
-{
-	return JS_NewInt32(ctx, GetArgumentsInfo(this_obj)->pxc->paramcount - 1);
-}
-
-JSValue GetArgumentsIndex(JSContext *ctx, JSValueConst this_obj)
-{
-	return JS_NewInt32(ctx, GetArgumentsInfo(this_obj)->index);
-}
-
 JSValue GetArgumentItem(JSContext *ctx, PPXAPPINFOW *ppxa, PPXMCOMMANDSTRUCT *pxc, int index)
 {
 	int imax;
@@ -1378,6 +1360,26 @@ JSValue GetArgumentItem(JSContext *ctx, PPXAPPINFOW *ppxa, PPXMCOMMANDSTRUCT *px
 		}
 	}
 	return JS_NULL;
+}
+
+JSValue ArgumentsItem(JSContext *ctx, JSValueConst this_obj, int argc, JSValueConst *argv)
+{
+	ARGUMENTSINFO *info = GetArgumentsInfo(this_obj);
+	int index = info->index;
+
+	if ( argc > 0 ) JS_ToInt32(ctx, &index, argv[0]);
+
+	return GetArgumentItem(ctx, info->ppxa, info->pxc, index);
+}
+
+JSValue GetArgumentsCount(JSContext *ctx, JSValueConst this_obj)
+{
+	return JS_NewInt32(ctx, GetArgumentsInfo(this_obj)->pxc->paramcount - 1);
+}
+
+JSValue GetArgumentsIndex(JSContext *ctx, JSValueConst this_obj)
+{
+	return JS_NewInt32(ctx, GetArgumentsInfo(this_obj)->index);
 }
 
 JSValue GetArgumentsValue(JSContext *ctx, JSValueConst this_obj)
