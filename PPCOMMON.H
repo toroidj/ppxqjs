@@ -54,10 +54,10 @@ Function の cmdID 割当て：記載がない限り、戻り値が 0 なら未実装
 struct tagPPXAPPINFOA;
 struct tagPPXAPPINFOW;
 
-#define PPxInfoFunc(info, func, uptr) (info)->Function(info, func, (void *)uptr)
-#define PPxInfoFunc32i(info, func, uptr) (int)(info)->Function(info, func, (void *)uptr)
-#define PPxInfoFunc32u(info, func, uptr) (DWORD)(info)->Function(info, func, (void *)uptr)
-#define PPxEnumInfoFunc(info, func, str, work) ((work)->buffer = str, PPxInfoFunc(info, func, work))
+#define PPxInfoFunc(info, cmdID, uptr) (info)->Function(info, cmdID, (void *)uptr)
+#define PPxInfoFunc32i(info, cmdID, uptr) (int)(info)->Function(info, cmdID, (void *)uptr)
+#define PPxInfoFunc32u(info, cmdID, uptr) (DWORD)(info)->Function(info, cmdID, (void *)uptr)
+#define PPxEnumInfoFunc(info, cmdID, str, work) ((work)->buffer = str, PPxInfoFunc(info, cmdID, work))
 
 /* 0x0000～PPXCMDID_FILL:	PPXCMDENUMSTRUCT を使用したやりとり用。
 		cmdid :		列挙対応版	'C', 'X', 'T'
@@ -113,6 +113,7 @@ typedef struct {
 	HMENU hMenu; // 追加元メニュー
 	int index;
 } EXECEXMENUINFO;
+#define PPXCMDID_GETINMENUBAR	0x0703	// メニューバーの PPXINMENUBAR を取得
 
 #define PPXCMDID_GETTMPFILENAME	0x07ef	// PP_ExtractMacro で %@ を使ったとき、その名前の通知時に使用
 
@@ -238,7 +239,7 @@ typedef union {
 		// 指定エントリに関連づけたユーザデータを読み書きする
 #define PPXCMDID_ENTRYEXTDATA_SETDATA 0x091e
 #define PPXCMDID_ENTRYEXTDATA_GETDATA 0x091f
-	// 拡張コメント用ID ID1=DFC_COMMENTEX_MAX, ID2=DFC_COMMENTEX_MAX-1...
+	// 拡張コメント用ID コメント1=DFC_COMMENTEX_MAX, コメント2=DFC_COMMENTEX_MAX-1...
 	#define DFC_COMMENTEX_MAX 0x7f00 // PPX.H に他のIDを記載
 	#define DFC_COMMENTEX (DFC_COMMENTEX_MAX - 10 + 1)
 typedef struct {
@@ -266,13 +267,12 @@ typedef struct {
 #define PPXCMDID_EXTREPORTTEXT	0x0a07	// 報告窓があればテキストをログ表示
   #define PPXCMDID_EXTREPORTTEXT_CLOSE	0x0a071 // 戻値:報告窓は存在しない
   #define PPXCMDID_EXTREPORTTEXT_LOG	0x0a072 // 戻値:報告窓に書き込んだ
-#define PPXCMDID_GETWNDVARIABLESTRUCT 0x0a08  // ZStringVariable で使用する窓別の構造体のアドレスを取得
-#define PPXCMDID_GETCONTROLVARIABLESTRUCT 0x0a09 // ZStringVariable で使用するEdit/Tree内構造体のアドレスを取得
+#define PPXCMDID_GETWNDVARIABLESTRUCT 0x0a08  // ZStringVariable,i で使用する窓別の構造体のアドレスを取得
+#define PPXCMDID_GETCONTROLVARIABLESTRUCT 0x0a09 // ZStringVariable,e で使用するEdit/Tree内構造体のアドレスを取得
 #define PPXCMDID_REPORTTEXT	0x0a0a	// テキストをログ表示
 #define PPXCMDID_MESSAGE	0x0a0b	// メッセージダイアログを表示
 #define PPXCMDID_DEBUGLOG	0x0a0c	// ログ記録(XM_DbgLOG)
-
-//#define PPXCMDID_GETEXTRACTVARIABLESTRUCT 0x0a0b // ZStringVariable で使用するExract内構造体のアドレスを取得
+#define PPXCMDID_GETEXTRACTVARIABLESTRUCT 0x0a0d // ZStringVariable,v で使用するExract内構造体のアドレスを取得
 
 #define PPXCMDID_SETPOPUPPOS	0x0a9f	// メニュー表示等に使う表示座標(POINT)
 
@@ -280,7 +280,7 @@ typedef struct {
 #define PPXCMDID_COMBOTABEXTRACTLONG 0x0a4d	// 一体化窓の特定窓の取得(長文字列)
 #define PPXCMDID_COMBOTABEXECUTE 0x0a4e	// 一体化窓の特定窓で実行
 #define PPXCMDID_COMBOTABEXTRACT 0x0a4f	// 一体化窓の特定窓の取得
-#define PPXCMDID_SETTABNAME		0x0a53	// タブの表示名 o
+#define PPXCMDID_SETTABNAME	0x0a53	// タブの表示名(未実装)
 
 // 以下は PPXUPTR_TABINDEXSTR を使用
 typedef struct {
@@ -380,6 +380,8 @@ typedef struct {
 //#define PPXCMDID_FREE_PPLIBINFO	0x0c18  // PPLIBxx.DLLのPPXAPPINFOを解放
 #define PPXCMDID_GETRAWPARAM		0x0c19  // PPXCMDID_COMMAND等の未加工パラメータを取得
 #define PPXCMDID_REQUIRE_CLOSETHREAD 0x0c1a	// PPXMEVENT_CLOSETHREAD を送信要求
+#define PPXCMDID_GETVARIABLEDATA 0x0c1b  // コマンドライン特殊環境変数の値を取得
+#define PPXCMDID_SETVARIABLEDATA 0x0c1c  // コマンドライン特殊環境変数の値を設定
 
 //## 0xff000～0xfffff:	内部用
 //-----------------------------------------------------------------------------
@@ -586,23 +588,23 @@ extern PPXDLL BOOL PPXAPI ThSize(ThSTRUCT *TH, SIZE32_T size);
 #define ThPointer(TH, offset) ((char *)((TH)->bottom + (offset)))
 #define ThPointerT(TH, offset) ((TCHAR *)(char *)((TH)->bottom + (offset)))
 #define ThLast(TH) ((char *)((TH)->bottom + (TH)->top))
+#define ThStrT(TH) ((TCHAR *)(TH)->bottom)
+#define ThStrLastT(TH) ((TCHAR *)(char *)((TH)->bottom + (TH)->top))
 #define ThNextAllocSizeS(maxsize) ThSTEP
 // 16k
 #define ThNextAllocSizeM(maxsize) ( (((maxsize) / 4) + ThSTEP) & ~(ThSTEP - 1) )
 // 256k
 #define ThNextAllocSizeL(maxsize) ( (((maxsize) / 2) + ThSTEP) & ~(ThSTEP - 1) )
 #ifdef UNICODE
-//	extern PPXDLL BOOL PPXAPI ThAddStringA(ThSTRUCT *TH, const char *data);
 extern PPXDLL BOOL PPXAPI ThCatStringA(ThSTRUCT *TH, const char *data);
 #else
-//	#define ThAddStringA ThAddString
 #define ThCatStringA ThCatString
 #endif
-extern PPXDLL BOOL PPXAPI ThSetString(ThSTRUCT *TH, const TCHAR *name, const TCHAR *str);
-extern PPXDLL TCHAR * PPXAPI ThAllocString(ThSTRUCT *TH, const TCHAR *name, SIZE32_T strsize);
-extern PPXDLL const TCHAR * PPXAPI ThGetString(ThSTRUCT *TH, const TCHAR *name, TCHAR *str, SIZE32_T strlength);
-extern PPXDLL TCHAR * PPXAPI ThGetLongString(ThSTRUCT *TH, const TCHAR *name, TCHAR *str, SIZE32_T strlength);
-extern PPXDLL BOOL PPXAPI ThEnumString(ThSTRUCT *TH, int index, TCHAR *name, TCHAR *str, SIZE32_T strlength);
+extern PPXDLL BOOL PPXAPI ThSetString(ThSTRUCT *thStringValue, const TCHAR *name, const TCHAR *str);
+extern PPXDLL TCHAR * PPXAPI ThAllocString(ThSTRUCT *thStringValue, const TCHAR *name, SIZE32_T strsize);
+extern PPXDLL const TCHAR * PPXAPI ThGetString(ThSTRUCT *thStringValue, const TCHAR *name, TCHAR *str, SIZE32_T strlength);
+extern PPXDLL TCHAR * PPXAPI ThGetLongString(ThSTRUCT *thStringValue, const TCHAR *name, TCHAR *str, SIZE32_T strlength);
+extern PPXDLL BOOL PPXAPI ThEnumString(ThSTRUCT *thStringValue, int index, TCHAR *name, TCHAR *str, SIZE32_T strlength);
 
 // PP_ExtractMacro 内のThGetString (%so) で取得可能な文字列
 #define StringVariable_Command_Title "title"		// %" の内容
@@ -712,8 +714,11 @@ extern PPXDLL BOOL PPXAPI NextParameter(LPCTSTR *str);
 extern PPXDLL INT_PTR PPXAPI GetNumber(LPCTSTR *ptr);
 #define GetDwordNumber(ptr) (DWORD)GetNumber(ptr)
 #define GetIntNumber(ptr) (int)GetNumber(ptr)
+extern PPXDLL BOOL PPXAPI GetNumberHL(LPCTSTR *ptr, INTHL *num);
+#define GetNumberFILETIME(ptr, num) EX_LITTLE_ENDIAN GetNumberHL(ptr, (INTHL *)num)
+
 // 単位付きで取得する
-extern PPXDLL BOOL PPXAPI GetSizeNumber(LPCTSTR *ptr, DWORD *Low, DWORD *High);
+extern PPXDLL BOOL PPXAPI GetSizeNumberHL(LPCTSTR *ptr, INTHL *num);
 
 // 数値を文字列に変換する
 // length は最低4+1文字(123k\0)確保する必要あり
@@ -733,7 +738,7 @@ extern PPXDLL BOOL PPXAPI GetSizeNumber(LPCTSTR *ptr, DWORD *Low, DWORD *High);
 #define XFNW_FULL32_SEP 13	// 32bit全桁 + XFN_SEPARATOR 1,234,567,890
 #define XFNW_FULL32_NOSEP 10	// 32bit全桁 1234567890
 
-extern PPXDLL void PPXAPI FormatNumber(TCHAR *str, DWORD flags, int length, DWORD low, DWORD high);
+extern PPXDLL TCHAR * PPXAPI FormatNumber(TCHAR *str, DWORD flags, int length, DWORD low, DWORD high);
 extern PPXDLL COLORREF PPXAPI GetColor(LPCTSTR *linesrc, BOOL usealias);
 
 															// 全角・半角変換 -
@@ -820,30 +825,31 @@ extern PPXDLL int PPXAPI tInputEx(TINPUT *tinput);
 #define PPXEDIT_ENABLE_SIZE_CHANGE (B15 | B16)	// サイズ変更キーを有効に
 #define PPXEDIT_DISABLE_CHECKSAVE B17	// (PPe)終了時の保存確認を無効にする
 #define PPXEDIT_SAVE_BYCLOSE B18	// (PPe)PPXEDIT_DISABLE_CHECKSAVE有効時、終了時に保存する
-#define PPXEDIT_LINE_MULTILINE	B19	// １行編集の複数行編集(要ES_MULTILINE)
+#define PPXEDIT_LINE_MULTILINE	B19	// １行編集ダイアログの複数行編集(要ES_MULTILINE)
 // B20 以降は内部で利用
 //-----------------------------------------------------------------------------
 extern PPXDLL HWND PPXAPI PPxRegistExEdit(PPXAPPINFO *info, HWND hED, int maxlen, const TCHAR *defstr, WORD rHist, WORD wHist, int flags);
 //---------------------------------------------------- ファイル検索
 #define EXTPATHEXT ".COM;.EXE;.BAT;.CMD"
-				// flags に指定する値
-									// 実行ファイル優先処理の方法
+
+				// cmdsearch / flags に指定する値 (B16 以降は内部で使用する)
+									// 実行ファイル優先パス
 #define CMDSEARCH_OFF		0	// 優先なし
 #define CMDSEARCH_CURRENT	B0	// カレントファイルを優先
 									// 動作指定
-#define CMDSEARCH_MAKELIST	B6	// 一覧生成モード
+#define CMDSEARCH_MAKELIST	B6	// 一覧生成モード(検索を無視して全部抽出)
 #define CMDSEARCH_NOADDSEP	B7	// ディレクトリのとき、「\」を付加しない
-#define CMDSEARCH_EDITBOX	B8	// エディットボックス用処理
+#define CMDSEARCH_EDITBOX	B8	// エディットボックス用処理(XP用カーソル調整)
 #define CMDSEARCH_MULTI		B9	// 複数パラメータ指定のため「"」が必要
 #define CMDSEARCH_DIRECTORY	B10	// ディレクトリ限定
-
 #define CMDSEARCH_ONE		B11	// ループしない
-#define CMDSEARCH_FLOAT		B12	// 部分一致検索
 #define CMDSEARCH_NOUNC		B13	// UNCは検索しない
+									// 一致方法
+#define CMDSEARCH_REGEXP	B5	// 正規表現検索(要 romahandle = 0 に初期化)
+#define CMDSEARCH_FLOAT		B12	// 部分一致検索
 #define CMDSEARCH_ROMA		B14	// ローマ字検索(要 romahandle = 0 に初期化)
 #define CMDSEARCH_WILDCARD	B15	// 「.」区切り検索(要 romahandle = 0 に初期化)
-#define CMDSEARCH_REGEXP	B5	// 正規表現検索(要 romahandle = 0 に初期化)
-// B16 以降は内部で使用する
+#define CMDSEARCH_MATCHFLAGS (CMDSEARCH_FLOAT | CMDSEARCH_ROMA | CMDSEARCH_WILDCARD | CMDSEARCH_REGEXP)
 
 typedef struct {	// 編集処理共通構造体
 // 要設定
@@ -868,6 +874,7 @@ typedef struct {
 #define GWS_BRAKET_LEFT 1
 #define GWS_BRAKET_LEFTRIGHT 2
 extern PPXDLL int PPXAPI GetWordStrings(TCHAR *line, ECURSOR *cursor, DWORD flags);
+// flag = 0, line = "" の時は、検索終了
 extern PPXDLL TCHAR * PPXAPI SearchFileIned(ESTRUCT *ED, TCHAR *line, ECURSOR *cursor, int flags);
 
 															// テキストスタック
@@ -1210,7 +1217,8 @@ typedef struct {
 	HMENU hMenu;	// 使用するメニュー
 	TCHAR *Command;	// 初期化不要/プロセス実行する必要があるならNULL以外
 	int index;		// 初期化不要/キーで選択された ByCommand index(WM_MENUSELECTで取得)
-	DWORD commandID; // 右クリックで呼び出すときに使用するコマンドのID
+	DWORD commandID; // 右クリック/TAB/BS で呼び出すときに使用するコマンドのID
+					// 0x10000 以上のときは、BS/TAB を押したとき、B31=1 に変更され、項目 = 0 で戻る
 	ThSTRUCT th;
 } PPXMENUINFO;
 extern PPXDLL BOOL PPXAPI PPxSetMenuInfo(HMENU hMenu, PPXMENUINFO *xminfo);
@@ -1506,6 +1514,24 @@ message:出力文字列, % 対応
 
 extern PPXDLL void USECDECL XMessage(HWND hWnd, const TCHAR *title, UINT type, const TCHAR *message, ...);
 #define xmessage(type, message) XMessage(NULL, NULL, type, message)
+
+#define THP_CAT 0 // ThCatString で ThSTRUCT に登録
+#define THP_ADD -1 // ThAddString で ThSTRUCT に登録
+
+// 多機能 sprintf
+// buflen == 0   buffer は ThSTRUCT、buflen > 0   buffer は TCHAR[size]
+// 対応書式
+// %% エスケープ			%[0-9+]s TCHAR 文字列	%c TCHAR 1文字
+// %['][0-9+]d int32		%['][0-9+]u UINT32
+// %['][0-9+]Ld int64		%['][0-9+]Lu UINT64
+// %['][0-9+]x/X uint64 hex	%['][0-9+]Lx/LX uint64 hex
+// %['][0-9+]Md UINT32		%['][0-9+]MLd UINT64 …これらは 123.45k 表示
+// %[0-9+]MF FILETIME *(UTC, ISO Tなし)
+// %[0-9+]Mm Win32エラーメッセージ
+extern PPXDLL TCHAR * USECDECL thprintf(void *buffer, int buflen, const TCHAR *message, ...);
+extern PPXDLL TCHAR * WINAPI thvprintf(void *buffer, int buflen, const TCHAR *message, t_va_list arglist);
+
+
 #define MES_AbortCheck NULL // text に指定し、style が MB_QYES なら表示
 #define MB_PPX_PLAIN_TEXT B24 // text の言語対応をなしにする
 #define MB_PPX_PLAIN_TITLE B25 // title の言語対応をなしにする
@@ -1660,6 +1686,7 @@ extern PPXDLL HWND PPXAPI PPEui(HWND hPWnd, const TCHAR *title, const TCHAR *tex
 								// 要求したときのみ(ppxa使用不可 , パラメータ無)
 #define PPXMEVENT_DESTROY	3	// アプリケーション・一行編集終了時に送られる
 								// (パラメータ無)
+//#define PPXMEVENT_CREATE	4	// アプリケーション作成時に送られる(未実装)
 #define PPXMEVENT_KEYHOOK	5	// キー入力時に送られる(登録をしたときのみ)
 								//							(PPXMKEYHOOKSTRUCT)
 #define PPXMEVENT_COMMAND	6	// 未定義コマンドの解釈     (PPXMCOMMANDSTRUCT)
@@ -1670,7 +1697,7 @@ extern PPXDLL HWND PPXAPI PPEui(HWND hPWnd, const TCHAR *title, const TCHAR *tex
 #define PPXMEVENT_SEARCH	10	// ファイル等の検索をする   (PPXMSEARCHSTRUCT)
 		// 検索結果は、PPXCMDID_REPORTSEARCH で通知する
 #define PPXMEVENT_EXLISTBOX	11	// 拡張リストボックス (PPXMEXTLISTBOX)
-//#define PPXMEVENT_CREATE		// アプリケーション作成時に送られる(未実装)
+#define PPXMEVENT_CUSTOMIZE	12	// 再カスタマイズが要求された (パラメータ無)
 //#define PPXMEVENT_MOUSE		// マウスクリック時に送られる(未実装)
 //#define PPXMEVENT_CURSOR		// カーソル位置変更時に送られる(未実装)
 
@@ -1745,7 +1772,7 @@ typedef struct tagPPXMEXTLISTBOX {
 	DWORD Style;
 	int x, y;
 	int width, height;
-	int type; // 0:汎用 1: 補完下側  2: 未使用 3: 補完上側
+	int type; // 0:汎用 1: 補完下側  2: 補完上側 3: 補完上側(combobox用)
 } PPXMEXTLISTBOX;
 
 // ModuleEntry の戻り値

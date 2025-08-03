@@ -1,10 +1,12 @@
-Paper Plane xUI  QuickJS Script Module
+# Paper Plane xUI  QuickJS Script Module
 
-QuickJS ( https://bellard.org/quickjs/ ) �𗘗p���� PPx ���
-Javascript �����s����PPx Module �ł��B
-WSH �� JScript �Ƃ�����x�̌݊���������AWSH Script Module ��
-�X�N���v�g�����L���₷���Ȃ��Ă��܂��B
+QuickJS ( https://bellard.org/quickjs/ ) を利用して PPx 上で
+Javascript を実行するPPx Module です。
+WSH の JScript とある程度の互換性を備え、WSH Script Module と
+スクリプトを共有しやすくなっています。
 
-WSH �łƂ̐��\�̔�r�Ƃ��ẮA���s���x�� jscript.dll ��
-jscript9.dll �Ƃ̒��Ԓ��x�ł����āA�ŏ��̏������Ɋ|���鎞�Ԃ�
-�����x���A�ƂȂ�܂��B
+WSH 版との性能の比較としては、実行速度が jscript.dll と
+jscript9.dll との中間程度であって、最初の初期化に掛かる時間が
+多少遅い、となります。
+
+詳細は、ppxqjs.txt を参照してください。

@@ -1,7 +1,7 @@
 #=======================================
 targetname = ppxqjs
 targetext = dll
-QJINCLUDE = quickjs-2024-01-13
+QJINCLUDE = quickjs-2025-04-26
 # QuickJS のライブラリ libquickjs(.lto).a は QJLIB を参照する
 
 ifndef X64
@@ -34,7 +34,7 @@ objs = $(objdir)/$(targetname).o $(objdir)/qjs_PPxObjects.o $(objdir)/qjs_Create
 gccname	= gcc -finput-charset=CP932 -fexec-charset=CP932
 releaseopt	= -O2 -Os -flto -s
 devopt	= -g
-cc	= @$(gccname) $(WarnOpt) -I$(QJINCLUDE)
+cc	= @$(gccname) $(WarnOpt) -I$(QJINCLUDE) -DQUICKJSVERSION=\"$(shell cat $(QJINCLUDE)/VERSION)\"
 lddll	= @$(gccname) -shared -static $(WarnOpt)
 Rcn	= wrc -l0x11 --nostdinc -l0x11 -I. -I/usr/include/wine/windows -I/usr/include/wine/wine/windows -I/usr/local/include/wine/windows
 
@@ -44,7 +44,7 @@ link	= @$(gccname) -s
 libs	= -lm -lpthread -lstdc++ -lole32 -loleaut32 -luuid
 
 
-.SUFFIXES: .coff .mc .rc .mc.rc .res .res.o .spec .spec.o .idl .tlb .h  .ico .RC .c .C .cpp .CPP
+.SUFFIXES: .coff .mc .rc .mc.rc .res .res.o .idl .tlb .h  .ico .RC .c .C .cpp .CPP
 
 $(objdir)/%.o: %.C | $(objdir)
 	$(cc) -x c -c $< -o $@
@@ -71,19 +71,16 @@ $(objdir)/%.o: %.cpp | $(objdir)
 	@echo $<
 	$(Rcn) $< -o $(basename $<).res
 
-.spec.spec.o:
-	winebuild -D_REENTRANT -fPIC --as-cmd "as" --dll -o $@ --main-module $(MODULE) --export $<
-
 #------------------------------------------------------ code体系切換用
 code$(TAIL)$(RELEASE).o:
-	-@cmd.exe /c del "$(targetname)$(TAIL).$(targetext)"
-	-@cmd.exe /c del "*.o"
-	-@cmd.exe /c del "$(objdir)\\*.o"
-	-@cmd.exe /c del "$(objdir)\\*.res"
-	-@cmd.exe /c copy nul "code$(TAIL)$(RELEASE).o"
+	-@rm './$(targetname)$(TAIL).$(targetext)'
+	-@rm '*.o'
+	-@rm '$(objdir)/*.o'
+	-@rm '$(objdir)/*.res'
+	-@touch 'code$(TAIL)$(RELEASE).o'
 
 $(objdir):
-	-@cmd.exe /c md "$(objdir)"
+	-@mkdir '$(objdir)'
 
 #------------------------------------------------------ 本体
 $(targetname)$(TAIL).$(targetext): $(objs)

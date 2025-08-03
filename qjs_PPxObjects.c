@@ -832,6 +832,7 @@ static JSValue SetEntryMark(JSContext *ctx, JSValueConst this_obj, JSValueConst 
 	int nums[2];
 
 	JS_ToInt32(ctx, &nums[0], val);
+	nums[1] = info->index;
 	info->ppxa->Function(info->ppxa, PPXCMDID_ENTRYSETMARK, nums);
 	info->index = nums[1]; // ‰ÁHÏ‚İ‚Ì’l‚ğ‰ñû‚µ‚Ä‚‘¬‰»
 	return JS_UNDEFINED;
@@ -1837,14 +1838,13 @@ static JSValue PPxArgument(JSContext *ctx, JSValueConst this_obj, int argc, JSVa
 
 static JSValue PPxOption(JSContext *ctx, JSValueConst this_obj, int argc, JSValueConst *argv)
 {
-//	InstanceValueStruct *info = GetCtxInfo(ctx);
 	JSValue result = JS_NULL;
 	const char *name = JS_ToCString(ctx, argv[0]);
-	#ifndef _WIN64
-	if ( strcmp(name, "Date") == 0 ){
-		result = JS_NewBool(ctx, FALSE);
-	}
-	#endif
+//	#ifndef _WIN64
+//	if ( strcmp(name, "Date") == 0 ){
+//		result = JS_NewBool(ctx, FALSE);
+//	}
+//	#endif
 	JS_FreeCString(ctx, name);
 	return result;
 }

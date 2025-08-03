@@ -601,6 +601,9 @@ int RunScript(PPXAPPINFOW *ppxa, PPXMCOMMANDSTRUCT *pxc, int file, BOOL module)
 	}
 
 	if ( info == NULL ){
+#ifndef _WIN64
+		__asm ("finit");
+#endif
 		info = malloc(sizeof(InstanceValueStruct));
 		info->EventChain.next = NULL;
 		info->script_image = NULL;

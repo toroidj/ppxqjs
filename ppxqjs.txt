@@ -1,5 +1,5 @@
  ------------------------------------------------------------------------------
-	Paper Plane xUI  QuickJS Script Module R1   Copyright (c)2024 TORO
+	Paper Plane xUI  QuickJS Script Module R2   Copyright (c)2024,2025 TORO
  ------------------------------------------------------------------------------
 
 	QuickJS ( https://bellard.org/quickjs/ ) を利用して PPx 上で
@@ -14,9 +14,8 @@
 
 ●現在の仕様
 
-	・QuickJS (2024-01-13) を使用しています。
-
-	・32bit版では Date オブジェクトを使用すると異常終了します。
+	・Windows Vista 以降で動作します。
+	・QuickJS (2025-04-26) を使用しています。
 
 
 ●Javascript の挙動について
@@ -35,6 +34,8 @@
 
 
 ●WSH版 Script Module(PPXSCR.DLL / PPXSCR64.DLL)との違い
+
+	・スクリプトファイルの文字コードは UTF-8 固定です。
 
 	・WSH版の JScript は ECMAScript 2015/ES6 以前でしたが、QuickJS 版は
 	  ECMAScript 2023 になります。また、V8 版は ECMAScript 2021 以降です。
@@ -116,7 +117,7 @@
 	使ってください。
 
 
-・スクリプトファイル実行(文字コードが UTF-8 のみ)
+・スクリプトファイル実行
 
 	*scriptq スクリプトファイル名[,パラメータ[,パラメータ]...]
 	*scriptm スクリプトファイル名[,パラメータ[,パラメータ]...]
@@ -125,6 +126,8 @@
 	%*scriptq(スクリプトファイル名[,パラメータ[,パラメータ]...])
 	%*scriptm(スクリプトファイル名[,パラメータ[,パラメータ]...])
 	%*script(スクリプトファイル名[,パラメータ[,パラメータ]...])
+
+	スクリプトファイルの文字コードが UTF-8 以外ではエラーになります。
 
 	スクリプトファイル名のカレントディレクトリは、実行時のカレント
 	ディレクトリです。PPx のパスを基準にしたいときは、
@@ -565,7 +568,7 @@ E_cr	= {
 
     ・version = PPx.ScriptEngineVersion		プロパティ、読み込み専用
 
-	使用しているスクリプト言語のバージョン("2024-01-13")を取得します。
+	使用しているスクリプト言語のバージョン("2025-04-26")を取得します。
 
 
     ・result = PPx.result			プロパティ、読み書き可能
@@ -1129,11 +1132,16 @@ E_cr	= {
 
 	・反復可能オブジェクトです。
 	  for ( ... of PPx.Entry ) が使えます。
+
 	  for に PPx.Entry を指定したときは、マークエントリかカーソル位置、
 	  PPx.Entry.AllMark を指定したときは、マークエントリのみ
 	  （マークがないときは列挙無し）、
+
 	  PPx.Entry.AllEntry を指定したときは、全てのエントリになります。
 	  尚、「.」「..」や削除エントリは無視されます。
+
+	  マーク関係の反復は、マーク操作を行うと正しく反復できなくなります。
+	  .FirstMark や .NextMark 等を使い手動で走査する必要があります。
 
 
 	例1) for ( var v of PPx.Entry ){ PPx.Echo(v.Name); }
@@ -1474,8 +1482,32 @@ E_cr	= {
 	  「高橋 良和」にあります。
 
 	・MinGW-w64 を用いて構築しています。
-	  また、qjscalc.c 中の JS_GetIterator を呼び出せるようにする
+	  lib32, lib64 に x86, x64 用の libquickjs(.lto).a を用意する
+	  必要があります。
+
+	  また、quickjs.c 中の JS_GetIterator を呼び出せるようにする
 	  パッチを当てています。
+	  
+	  具体的には次のようにしてライブラリを作成しています。
+
+	  1) makefile のパッチ
+	   LDEXPORT=-rdynamic の -rdynamic を削除
+	   HOST_LIBS=-lm -ldl -lpthread の -ldl を削除
+	   LIBS+=-ldl -lpthread の -ldl を削除
+
+	  2) quickjs.c のパッチ
+	   static JSValue JS_GetIterator(JSContext *ctx, JSValueConst obj, BOOL is_async)
+	   の static を削除
+
+	  3) quickjs.h のパッチ
+	    JSValue JS_GetIterator(JSContext *ctx, JSValueConst obj, BOOL is_async);
+	    を追加
+
+	  4) make -E CONFIG_LTO=y で libquickjs.a / libquickjs.lto.a を作成
+	    ※ hello.exe の作成に失敗( 型 BOOL が見つからない)するところまで
+	       進めば作成される
+
+	  5) lib32, lib64 に libquickjs(.lto).a をコピー
 
 
 
@@ -1484,7 +1516,7 @@ E_cr	= {
 PPx QuickJS Script Module は、MITライセンスに基づいて公開しています。
 PPx QuickJS Script Module is released under the MIT License.
 
-Copyright (c) 2024 TORO
+Copyright (c) 2025 TORO
 
 
 QuickJS は、MITライセンスに基づいて公開しています。
@@ -1513,7 +1545,10 @@ SOFTWARE.
 
 
 ●履歴
-R1+1	2024/09/28
+R2	2025/05/10
+・QuickJS (2025-04-26) を使用
+・32bit版で Date オブジェクトを使用すると異常終了するのを修正
+・PPx.Entry.Mark の setter が正常に機能しないのを修正
 ・PPx.Arguments.Item(n) の戻り値を object から string に変更した
 ・PPx.Pane と PPx.Pane.Tab の iterator がおかしかったのを修正
 

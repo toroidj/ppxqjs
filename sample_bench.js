@@ -1,4 +1,4 @@
-﻿//!*script
+//!*script
 // JScript / JScript(Chakra) / V8 / QuickJS 兼用
 
 var result;
@@ -15,10 +15,6 @@ function fib(i) {
   return fib(i-1) + fib(i-2);
 }
 
-if ( PPx.option("Date") != false ){
 	var startAt = new Date();
 	var varf = fib(30);
 	PPx.report("sample_bench.js: " + result + "  fib(30) = " + varf + ", Time: " + (new Date() - startAt) + " ms\r\n");
-}else{
-	PPx.report("sample_bench.js: QuickJS 32bit版は Date object が異常終了するため、結果の表示ができません。");
-}

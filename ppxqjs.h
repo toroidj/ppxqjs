@@ -3,8 +3,8 @@
 -----------------------------------------------------------------------------*/
 #define TOSTRMACRO(item)	#item
 
-#define QUICKJSVERSION "2024-01-13"
-#define SCRIPTMODULEVER 1  // Release number
+// #define QUICKJSVERSION "2025-04-26"
+#define SCRIPTMODULEVER 2  // Release number
 #define SCRIPTMODULEVERSTR	UNICODESTR(TOSTRMACRO(1))
 
 #define Message8(text) {WCHAR bufW[2000]; MultiByteToWideChar(CP_UTF8, 0, text, -1, bufW, 2000); MessageW(bufW); }
